@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import argparse # Import module argparse
 from evaluation import calculate_multi_class_metrics, overall_pixel_accuracy 
-from model.backbone import UNet # Giả định UNet đã được định nghĩa ở đây
+from model.unet import UNet # Giả định UNet đã được định nghĩa ở đây
 from lowlight_dataset import NightCitySegmentationDataset, PairedTransform 
 
 
