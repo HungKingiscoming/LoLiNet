@@ -1,6 +1,6 @@
 """ Full assembly of the parts to form the complete network """
 
-from .unet_parts import *
+from model.blocks import *
 
 
 class UNet(nn.Module):
@@ -46,3 +46,4 @@ class UNet(nn.Module):
         self.up3 = torch.utils.checkpoint(self.up3)
         self.up4 = torch.utils.checkpoint(self.up4)
         self.outc = torch.utils.checkpoint(self.outc)
+
