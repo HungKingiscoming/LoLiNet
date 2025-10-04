@@ -58,6 +58,13 @@ class UpConvBlock(nn.Module):
         self.conv_block = conv_block(
             in_channels=2 * skip_channels,
             out_channels=out_channels,
+            num_convs=2,                # hoặc truyền từ tham số UpConvBlock nếu muốn
+            stride=1,
+            dilation=1,
+            with_cp=False,
+            conv_cfg=None,
+            norm_cfg=None,
+            act_cfg=None
         )
 
     def forward(self, skip, x):
