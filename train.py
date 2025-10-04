@@ -99,25 +99,51 @@ def train_model(args):
     for epoch in range(NUM_EPOCHS):
         model.train() 
         running_loss = 0.0
+        
+        # Thêm biến tích lũy metrics
+        total_mIoU, total_mDice, total_mAcc, total_overall_acc = 0.0, 0.0, 0.0, 0.0
+        num_batches = len(train_loader)
 
         for batch_idx, (night_image, target_mask) in enumerate(train_loader):
             
             night_image = night_image.to(device)
+            # target_mask đã được NightCitySegmentationDataset trả về dạng (H, W) với dtype=torch.long
             target_mask = target_mask.to(device) 
 
             optimizer.zero_grad()
             prediction_logits = model(night_image) 
+            
+            # Loss
             L_Task = criterion(prediction_logits, target_mask)
 
             L_Task.backward()      
-            optimizer.step()        
+            optimizer.step()       
 
             running_loss += L_Task.item()
+            
+            # === Tính toán Metrics ===
+            with torch.no_grad():
+                # Tính Multi-Class Metrics (mIoU, mDice, mAcc)
+                metrics = calculate_multi_class_metrics(prediction_logits, target_mask, NUM_CLASSES)
+                total_mIoU += metrics['mIoU']
+                total_mDice += metrics['mDice']
+                total_mAcc += metrics['mAcc']
+                
+                # Tính Overall Pixel Accuracy
+                overall_acc = overall_pixel_accuracy(prediction_logits, target_mask)
+                total_overall_acc += overall_acc
+
 
         scheduler.step()
 
-        avg_loss = running_loss / len(train_loader)
-        print(f"Epoch {epoch+1}/{NUM_EPOCHS} | Loss: {avg_loss:.4f}")
+        avg_loss = running_loss / num_batches
+        avg_mIoU = total_mIoU / num_batches
+        avg_mDice = total_mDice / num_batches
+        avg_mAcc = total_mAcc / num_batches
+        avg_overall_acc = total_overall_acc / num_batches
+        
+        # === In kết quả Epoch ===
+        print(f"Epoch {epoch+1}/{NUM_EPOCHS} | Loss: {avg_loss:.4f} | mIoU: {avg_mIoU:.4f} | mDice: {avg_mDice:.4f} | mAcc: {avg_mAcc:.4f} | Overall Acc: {avg_overall_acc:.4f}")
 
         # Tùy chọn: Lưu checkpoint
         if (epoch + 1) % 10 == 0:
