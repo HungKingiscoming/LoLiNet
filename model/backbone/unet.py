@@ -74,7 +74,7 @@ class LowLightUNet(BaseModule):
 
     def __init__(self,
                  in_channels=3,
-                 base_channels=64,
+                 base_channels=32,
                  num_stages=5,
                  strides=(1, 1, 1, 1, 1),
                  enc_num_convs=(2, 2, 2, 2, 2),
