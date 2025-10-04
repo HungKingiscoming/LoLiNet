@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import argparse # Import module argparse
-from evaluation import calculate_multi_class_metrics, overall_pixel_accuracy 
+from evaluation import batch_multi_class_metrics
 from model.unet import UNet # Giả định UNet đã được định nghĩa ở đây
 from lowlight_dataset import NightCitySegmentationDataset, PairedTransform 
 
@@ -90,7 +90,7 @@ def train_model(args):
     )
 
     # 3. Khởi tạo Loss và Optimizer
-    IGNORE_INDEX = 255 # Do ánh xạ nhãn, nhãn bỏ qua là 255
+    IGNORE_INDEX = 255
     criterion = nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX).to(device) 
     
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -100,41 +100,51 @@ def train_model(args):
 
     # 4. Vòng lặp Huấn luyện Chính (Giữ nguyên logic tính toán Loss và Metrics)
     for epoch in range(NUM_EPOCHS):
-        model.train() 
+        model.train()
         running_loss = 0.0
         
+        # Khởi tạo biến tích lũy
         total_mIoU, total_mDice, total_mAcc, total_overall_acc = 0.0, 0.0, 0.0, 0.0
         num_batches = len(train_loader)
-
+    
         for batch_idx, (night_image, target_mask) in enumerate(train_loader):
             
             night_image = night_image.to(device)
-            target_mask = target_mask.to(device) 
-
+            target_mask = target_mask.to(device)
+    
             optimizer.zero_grad()
-            prediction_logits = model(night_image) 
+            prediction_logits = model(night_image)
             
             L_Task = criterion(prediction_logits, target_mask)
-
-            L_Task.backward()      
-            optimizer.step()       
-
+    
+            L_Task.backward()
+            optimizer.step()
+    
             running_loss += L_Task.item()
             
             # === Tính toán Metrics ===
             with torch.no_grad():
-                metrics = calculate_multi_class_metrics(prediction_logits, target_mask, NUM_CLASSES)
+                metrics = batch_multi_class_metrics(
+                    prediction_logits, 
+                    target_mask, 
+                    num_classes=NUM_CLASSES
+                )
+                
+                # 🌟 Tích lũy các metrics từ hàm mới
                 total_mIoU += metrics['mIoU']
                 total_mDice += metrics['mDice']
                 total_mAcc += metrics['mAcc']
+                # ----------------------------------
                 
+                # Tính và tích lũy Overall Acc (giữ nguyên logic cũ)
                 overall_acc = overall_pixel_accuracy(prediction_logits, target_mask)
                 total_overall_acc += overall_acc
-
-
+    
+    
         scheduler.step()
-
+    
         avg_loss = running_loss / num_batches
+        # Tính giá trị trung bình cuối cùng của các metrics
         avg_mIoU = total_mIoU / num_batches
         avg_mDice = total_mDice / num_batches
         avg_mAcc = total_mAcc / num_batches
@@ -142,7 +152,7 @@ def train_model(args):
         
         # === In kết quả Epoch ===
         print(f"Epoch {epoch+1}/{NUM_EPOCHS} | Loss: {avg_loss:.4f} | mIoU: {avg_mIoU:.4f} | mDice: {avg_mDice:.4f} | mAcc: {avg_mAcc:.4f} | Overall Acc: {avg_overall_acc:.4f}")
-
+    
         # Tùy chọn: Lưu checkpoint
         if (epoch + 1) % 10 == 0:
             os.makedirs('./checkpoints', exist_ok=True)
@@ -150,7 +160,6 @@ def train_model(args):
                 {'model': model.state_dict()}, 
                 f'./checkpoints/checkpoint_epoch_{epoch+1}.pth'
             )
-
 if __name__ == '__main__':
     args = parse_args()
     train_model(args)
