@@ -65,10 +65,17 @@ def train_model(args):
         return
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # 🌟 THÊM LOGIC IN THÔNG TIN LỚP TẠI ĐÂY
+    num_trainable_classes = len(ID_MAPPING)
     
+    print("="*50)
+    print("📋 CẤU HÌNH LỚP HỌC (TRAINING CLASS CONFIG) 📋")
+    print("-" * 50)
+    print(f"✅ Số lượng lớp được huấn luyện (Train ID: 0 đến {num_trainable_classes-1}): {num_trainable_classes}")
+    print(f"❌ Lớp BỎ QUA (IGNORE_INDEX): {IGNORE_INDEX}")
     # 1. Khởi tạo Mô hình
     model = UNet(n_channels=3, n_classes=NUM_CLASSES).to(device) 
-
+    
     # 2. Khởi tạo Dataset và DataLoader
     data_transform = PairedTransform(size=(TARGET_SIZE, TARGET_SIZE)) 
     
