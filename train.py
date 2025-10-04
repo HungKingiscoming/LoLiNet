@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 import argparse # Import module argparse
 
 # ⚠️ CÁC IMPORT CẦN THIẾT (Giả định nằm trong các file khác)
-from model.backbone.unet import UNet # Giả định UNet đã được định nghĩa ở đây
+from model.backbone import UNet # Giả định UNet đã được định nghĩa ở đây
 from dataset_loader import NightCitySegmentationDataset, PairedTransform 
 
 
