@@ -32,10 +32,11 @@ class LLPFConv(nn.Module):
                      padding=self.padding, groups=self.channels, stride=self.stride)
         return x
 
-# Dùng lại AdaDConv bạn đã cung cấp: (Chỉ là placeholder, bạn phải dùng code đầy đủ của mình)
+
 class AdaDConv(nn.Module):
     """
     Adaptive-weighted downsampling
+    Sử dụng code bạn cung cấp cho cả __init__ và forward.
     """
     def __init__(self, in_channels, kernel_size=3, stride=2, groups=1, use_channel=True, use_nin=False):
         super().__init__()
@@ -50,47 +51,53 @@ class AdaDConv(nn.Module):
             mid_channel = min((kernel_size ** 2 // 2), 4)
             self.weight_net = nn.Sequential(
                 nn.Conv2d(in_channels=in_channels, out_channels=groups * mid_channel , stride=stride,
-                        kernel_size=kernel_size, bias=False, padding=self.pad, groups=groups),
+                          kernel_size=kernel_size, bias=False, padding=self.pad, groups=groups),
                 nn.BatchNorm2d(self.groups * mid_channel), 
                 nn.ReLU(True),
                 nn.Conv2d(in_channels=groups * mid_channel, out_channels=groups * kernel_size ** 2, stride=1,
-                        kernel_size=1, bias=False, padding=0, groups=groups),
+                          kernel_size=1, bias=False, padding=0, groups=groups),
                 nn.BatchNorm2d(self.groups * kernel_size ** 2), 
             )
 
         else:
             self.weight_net = nn.Sequential(
                 nn.Conv2d(in_channels=in_channels, out_channels=groups * kernel_size ** 2, stride=stride,
-                        kernel_size=kernel_size, bias=False, padding=self.pad, groups=groups),
+                          kernel_size=kernel_size, bias=False, padding=self.pad, groups=groups),
                 nn.BatchNorm2d(self.groups * kernel_size ** 2), 
-                # nn.Softmax(dim=1)
             )
 
         if use_channel:
             self.channel_net = nn.Sequential(
                 nn.AdaptiveAvgPool2d((1, 1)), 
                 nn.Conv2d(in_channels=in_channels, out_channels= in_channels // 4, kernel_size=1, bias=False),
-                # nn.BatchNorm2d(in_channels // 4), 
                 nn.ReLU(True),
                 nn.Conv2d(in_channels=in_channels // 4, out_channels = in_channels, kernel_size=1, bias=False),
-                # nn.Sigmoid()
             )
 
-        # nn.init.kaiming_normal_(self.channel_net[0].weight, mode='fan_out', nonlinearity='relu')
-        # nn.init.kaiming_normal_(self.weight_net[0].weight, mode='fan_out', nonlinearity='relu')
-
     def forward(self, x):
-        # Đây là một forward placeholder, bạn nên dùng forward đầy đủ của mình
+        # Đây là logic tính toán Adaptive Weighted Downsampling CHÍNH XÁC
         b, c, h, w = x.shape
         oh = (h - 1) // self.stride + 1
         ow = (w - 1) // self.stride + 1
-        # Giả lập AdaDConv bằng AvgPool đơn giản nếu không có code đầy đủ
-        # Nếu có code đầy đủ, hãy dùng nó.
-        if hasattr(self, 'weight_net'):
-            # Giả định: AdaDConv giảm mẫu xuống 1/2
-            return F.avg_pool2d(x, kernel_size=3, stride=self.stride, padding=1)
-        else:
-            return F.avg_pool2d(x, kernel_size=2, stride=2)
+        weight = self.weight_net(x) 
+        weight = weight.reshape(b, self.groups, 1, self.kernel_size ** 2, oh, ow) 
+        weight = weight.repeat(1, 1, c // self.groups, 1, 1, 1)
+
+        if self.use_channel:
+            tmp = self.channel_net(x).reshape(b, self.groups, c // self.groups, 1, 1, 1)
+            weight = weight * tmp
+            
+        weight = weight.permute(0, 1, 2, 4, 5, 3).softmax(dim=-1)
+        weight = weight.reshape(b, self.groups, c // self.groups, oh, ow, self.kernel_size, self.kernel_size)
+
+        pad_x = F.pad(x, pad=[self.pad] * 4, mode='reflect')
+        pad_x = pad_x.unfold(2, self.kernel_size,self.stride).unfold(3, self.kernel_size, self.stride)
+        pad_x = pad_x.reshape(b, self.groups, c // self.groups, oh, ow, self.kernel_size, self.kernel_size)
+        
+        res = weight * pad_x
+        res = res.sum(dim=(-1, -2)).reshape(b, c, oh, ow)
+        return res
+
 
 
 class DoubleConv(nn.Module):
@@ -132,4 +139,5 @@ class DoubleConv(nn.Module):
         
         # Tổng hợp: Luồng chính + (Trọng số * Luồng làm mượt)
         return x_conv + self.gamma * x_smooth
+
 
