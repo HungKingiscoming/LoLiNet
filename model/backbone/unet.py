@@ -9,7 +9,7 @@ from mmcv.utils.parrots_wrapper import _BatchNorm
 from model.backbone.blocks import AdaDConv, SCBConvBlock
 
 from ops import Upsample  # Lớp upsampling từ OpenMMLab
-from ..builder import BACKBONES # Register module
+
 
 
 class ConvBlock(nn.Module):
