@@ -18,10 +18,10 @@ def parse_args():
     
     # --- Tham số Bắt buộc / Quan trọng ---
     parser.add_argument('--rootdir', type=str, required=True,
-                        help='Đường dẫn gốc đến thư mục chứa dữ liệu (e.g., ./data/night_city_dataset)')
+                        help='Đường dẫn gốc đến thư mục chứa dữ liệu ')
     parser.add_argument('--size', type=int, default=224,
                         help='Kích thước ảnh đầu vào (N x N) sau khi resize. Mặc định: 224')
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=200,
                         help='Tổng số epoch huấn luyện. Mặc định: 50')
     parser.add_argument('--batchsize', type=int, default=8,
                         help='Kích thước batch. Mặc định: 8')
@@ -35,7 +35,7 @@ def parse_args():
                         help='Tên thư mục con chứa ảnh đầu vào. Mặc định: images')
     parser.add_argument('--masksubdir', type=str, default='labels',
                         help='Tên thư mục con chứa mask nhãn. Mặc định: labels')
-    parser.add_argument('--numworkers', type=int, default=4,
+    parser.add_argument('--numworkers', type=int, default=2,
                         help='Số lượng worker cho DataLoader. Mặc định: 4')
                         
     return parser.parse_args()
