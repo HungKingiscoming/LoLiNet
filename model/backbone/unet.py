@@ -35,60 +35,37 @@ class ConvBlock(nn.Module):
         return self.convs(x)
 
 class UpConvBlock(nn.Module):
-    """
-    Khối giải mã (Decoder Block) tương đương với UpConvBlock của mmseg/mmcv.
-    Thực hiện: Upsample -> Concat (Skip) -> Convolution (PyTorchConvBlock/SCB).
-    """
     def __init__(self, in_channels, skip_channels, out_channels, 
-                 conv_block=ConvBlock): # Có thể dùng PyTorchConvBlock hoặc SCB
-        
+                 conv_block=ConvBlock, num_convs=2, stride=1, dilation=1,
+                 with_cp=False, conv_cfg=None, norm_cfg=None, act_cfg=None):
         super().__init__()
-        
-        # 1. Upsample module (Tương đương InterpConv: Bilinear Upsample + 1x1 Conv)
-        # Giảm số kênh từ in_channels (từ tầng dưới) xuống skip_channels
+
+        # 1. Upsample module
         self.upsample = nn.Sequential(
-            # Bilinear Upsample: Tăng kích thước không gian lên x2
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True), 
-            # 1x1 Conv: Điều chỉnh kênh
-            nn.Conv2d(in_channels, skip_channels, kernel_size=1, bias=False) 
+            nn.Conv2d(in_channels, skip_channels, kernel_size=1, bias=False)
         )
-        
-        # 2. Convolution Block (Fuses skip connection và upsampled features)
-        # Input channel sau khi concatenate: skip_channels (từ skip) + skip_channels (từ upsampled x)
+
+        # 2. ConvBlock
         self.conv_block = conv_block(
-            in_channels=2 * skip_channels,
+            in_channels=2*skip_channels,
             out_channels=out_channels,
-            num_convs=2,                # hoặc truyền từ tham số UpConvBlock nếu muốn
-            stride=1,
-            dilation=1,
-            with_cp=False,
-            conv_cfg=None,
-            norm_cfg=None,
-            act_cfg=None
+            num_convs=num_convs,
+            stride=stride,
+            dilation=dilation,
+            with_cp=with_cp,
+            conv_cfg=conv_cfg,
+            norm_cfg=norm_cfg,
+            act_cfg=act_cfg
         )
 
     def forward(self, skip, x):
-        """
-        Args:
-            skip (Tensor): Feature map từ Encoder (low-level, high-resolution).
-            x (Tensor): Feature map từ Decoder tầng dưới (high-level, low-resolution).
-        """
-        
-        # 1. Upsample
         x = self.upsample(x)
-        
-        # Đảm bảo kích thước khớp nếu có làm tròn khác biệt
         if skip.shape[-2:] != x.shape[-2:]:
-             x = F.interpolate(x, size=skip.shape[-2:], mode='bilinear', align_corners=True)
-        
-        # 2. Concatenation (Fusion)
+            x = F.interpolate(x, size=skip.shape[-2:], mode='bilinear', align_corners=True)
         out = torch.cat([skip, x], dim=1)
-        
-        # 3. Convolution
         out = self.conv_block(out)
-
         return out
-
 
 class LowLightUNet(BaseModule):
     """
@@ -150,20 +127,20 @@ class LowLightUNet(BaseModule):
                 upsample = (strides[i] != 1 or downsamples[i - 1])
                 self.decoder.append(
                     UpConvBlock(
-                        conv_block=SCBConvBlock, # SỬ DỤNG SCBConvBlock
-                        in_channels=base_channels * 2**i,
-                        skip_channels=base_channels * 2**(i - 1),
-                        out_channels=base_channels * 2**(i - 1),
-                        num_convs=dec_num_convs[i - 1],
+                        conv_block=SCBConvBlock,
+                        in_channels=base_channels*2**i,
+                        skip_channels=base_channels*2**(i-1),
+                        out_channels=base_channels*2**(i-1),
+                        num_convs=dec_num_convs[i-1],
                         stride=1,
-                        dilation=dec_dilations[i - 1],
+                        dilation=dec_dilations[i-1],
                         with_cp=with_cp,
                         conv_cfg=conv_cfg,
                         norm_cfg=norm_cfg,
-                        act_cfg=act_cfg,
-                        upsample_cfg=upsample_cfg if upsample else None,
-                        dcn=None,
-                        plugins=None))
+                        act_cfg=act_cfg
+                    )
+                )
+
 
             # Khối Encoder (sau Downsampling, nếu có)
             # Tính toán in_channels cho SCBConvBlock
