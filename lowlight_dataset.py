@@ -98,13 +98,14 @@ class PairedTransform:
 
 class NightCitySegmentationDataset(Dataset):
     """
-    Dataset tùy chỉnh để tải cặp ảnh ban đêm và Mask Nhãn.
+    Dataset tùy chỉnh. Nhận trực tiếp đường dẫn đến thư mục ảnh và thư mục mask.
     """
-    def __init__(self, root_dir, img_subdir, mask_subdir, transform=None): 
-        # Cấu trúc đường dẫn đã điều chỉnh (giả định img_subdir='train', mask_subdir='train')
-        self.img_path = os.path.join(root_dir, 'NightCity-images/images', img_subdir)
-        self.mask_path = os.path.join(root_dir, 'NightCity-label/NightCity-label/label', mask_subdir)
+    def __init__(self, img_dir, mask_dir, transform=None): 
+        # Nhận đường dẫn ảnh/mask đã được tính toán ở ngoài
+        self.img_path = img_dir
+        self.mask_path = mask_dir
         
+        # Lấy danh sách file ảnh
         self.file_list = sorted(os.listdir(self.img_path))
         
         if transform is None:
@@ -120,25 +121,29 @@ class NightCitySegmentationDataset(Dataset):
         
         img_path = os.path.join(self.img_path, file_name)
         
-        # Dùng quy tắc đặt tên nhãn đã thảo luận
+        # Logic đặt tên nhãn vẫn cần được giữ nguyên để tìm file nhãn tương ứng
         base_name, ext = os.path.splitext(file_name)
-        label_file_name = f"{base_name}_labelIds{ext}"
-        mask_path = os.path.join(self.mask_path, label_file_name) 
+        
+        # Quy tắc 1: {base_name}_labelIds{ext}
+        label_file_name_1 = f"{base_name}_labelIds{ext}"
+        mask_path_1 = os.path.join(self.mask_path, label_file_name_1) 
 
-        # Thử các quy tắc đặt tên khác nếu file nhãn không tồn tại
-        if not os.path.exists(mask_path):
-             label_file_name_alt = file_name 
-             mask_path_alt = os.path.join(self.mask_path, label_file_name_alt)
-             if os.path.exists(mask_path_alt):
-                 mask_path = mask_path_alt
-             else:
-                 label_file_name_cityscapes = file_name.replace('leftImg8bit', 'gtFine_labelIds')
-                 mask_path_cityscapes = os.path.join(self.mask_path, label_file_name_cityscapes)
-                 
-                 if os.path.exists(mask_path_cityscapes):
-                      mask_path = mask_path_cityscapes
-                 else:
-                     raise FileNotFoundError(f"Không tìm thấy file nhãn cho {file_name} trong thư mục {self.mask_path} với bất kỳ quy tắc nào.")
+        # Quy tắc 2: Tên file giống tên ảnh
+        mask_path_2 = os.path.join(self.mask_path, file_name)
+        
+        # Quy tắc 3: Quy tắc Cityscapes
+        label_file_name_3 = file_name.replace('leftImg8bit', 'gtFine_labelIds')
+        mask_path_3 = os.path.join(self.mask_path, label_file_name_3)
+        
+        # Chọn đường dẫn mask tồn tại
+        if os.path.exists(mask_path_1):
+            mask_path = mask_path_1
+        elif os.path.exists(mask_path_2):
+            mask_path = mask_path_2
+        elif os.path.exists(mask_path_3):
+            mask_path = mask_path_3
+        else:
+             raise FileNotFoundError(f"Không tìm thấy file nhãn cho {file_name} trong thư mục {self.mask_path} với bất kỳ quy tắc nào.")
 
         night_img = Image.open(img_path).convert('RGB')
         target_mask = Image.open(mask_path).convert('L') 
