@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 import argparse # Import module argparse
 from evaluation import batch_multi_class_metrics, overall_pixel_accuracy
 from model.unet import UNet # Giả định UNet đã được định nghĩa ở đây
-from lowlight_dataset import NightCitySegmentationDataset, PairedTransform 
+from lowlight_dataset import NightCitySegmentationDataset, PairedTransform, ID_MAPPING, IGNORE_INDEX
 
 
 # ===============================================
