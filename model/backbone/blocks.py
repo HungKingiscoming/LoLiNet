@@ -1,16 +1,13 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-
 class DoubleConv(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
+    """(convolution => [BN] => ReLU) * 2 - ĐÃ SỬA ĐỔI VỚI SCB RESIDUAL"""
 
     def __init__(self, in_channels, out_channels, mid_channels=None):
         super().__init__()
         if not mid_channels:
             mid_channels = out_channels
-        self.double_conv = nn.Sequential(
+            
+        # 1. Luồng Trích xuất Đặc trưng Tiêu chuẩn (Standard Conv)
+        self.conv_block = nn.Sequential(
             nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(mid_channels),
             nn.ReLU(inplace=True),
@@ -18,32 +15,55 @@ class DoubleConv(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         )
+        
+        # 2. Luồng Lọc Thông Thấp (LLPF Residual - SCB Principle)
+        # Tạo kết nối tàn dư cho lớp làm mượt để ổn định đặc trưng
+        self.llpf_res = nn.Sequential(
+            LLPFConv(channels=in_channels, stride=1, padding=1),
+            # Conv 1x1 để điều chỉnh kênh từ in_channels -> out_channels
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False), 
+            nn.BatchNorm2d(out_channels)
+        )
+        
+        # 3. Trọng số học được để kiểm soát sự đóng góp của luồng làm mượt
+        self.gamma = nn.Parameter(torch.zeros(1)) 
 
     def forward(self, x):
-        return self.double_conv(x)
+        # Luồng chính (Standard Conv)
+        x_conv = self.conv_block(x)
+        
+        # Luồng làm mượt (LLPF Residual)
+        x_smooth = self.llpf_res(x)
+        
+        # Tổng hợp: Luồng chính + (Trọng số học được * Luồng làm mượt)
+        return x_conv + self.gamma * x_smooth
 
+# ===============================================================
+# C. DOWN/UP/OUT CONV - Thay thế MaxPool bằng AdaDConv
+# ===============================================================
 
 class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
+    """Giảm mẫu bằng AdaDConv sau đó DoubleConv (đã sửa đổi)"""
 
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_channels, out_channels)
-        )
+        self.down = AdaDConv(in_channels=in_channels, stride=2) 
+        # DoubleConv đã được sửa đổi để sử dụng SCB
+        self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x):
-        return self.maxpool_conv(x)
+        # 1. Giảm mẫu thích ứng (Adaptive Downsampling)
+        x = self.down(x) 
+        # 2. Trích xuất đặc trưng và làm mượt (Smooth Double Conv)
+        return self.conv(x)
 
 
 class Up(nn.Module):
-    """Upscaling then double conv"""
+    """Upscaling sau đó DoubleConv (đã sửa đổi)"""
 
     def __init__(self, in_channels, out_channels, bilinear=True):
         super().__init__()
 
-        # if bilinear, use the normal convolutions to reduce the number of channels
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
             self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
@@ -59,9 +79,6 @@ class Up(nn.Module):
 
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
@@ -73,3 +90,4 @@ class OutConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
+
