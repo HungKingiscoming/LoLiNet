@@ -55,5 +55,3 @@ class NightCitySegmentationDataset(Dataset):
         target_mask = torch.from_numpy(np.array(target_mask, dtype=np.int64)) 
         
         return night_img, target_mask
-    
-# ----------------- Hết lowlight_dataset.py -----------------
