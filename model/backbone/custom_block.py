@@ -34,22 +34,50 @@ class LLPFConv(nn.Module):
 
 # Dùng lại AdaDConv bạn đã cung cấp: (Chỉ là placeholder, bạn phải dùng code đầy đủ của mình)
 class AdaDConv(nn.Module):
-    # ... (Sử dụng toàn bộ code AdaDConv bạn đã cung cấp)
-    # Vì lý do độ dài code, lớp này chỉ được để placeholder.
-    # Trong môi trường thực tế, bạn phải đặt toàn bộ code AdaDConv ở đây.
+    """
+    Adaptive-weighted downsampling
+    """
     def __init__(self, in_channels, kernel_size=3, stride=2, groups=1, use_channel=True, use_nin=False):
         super().__init__()
-        # ... (khởi tạo)
-        self.pad = (kernel_size - 1) // 2
+        self.kernel_size = kernel_size
+        self.pad = (kernel_size-1) // 2
         self.stride = stride
         self.in_channels = in_channels
         self.groups = groups
         self.use_channel = use_channel
-        # ... (định nghĩa self.weight_net và self.channel_net)
-        # Sử dụng một Conv 1x1 đơn giản để tránh lỗi thiếu định nghĩa khi chạy
-        self.weight_net = nn.Conv2d(in_channels, in_channels * kernel_size ** 2, kernel_size, stride, self.pad, groups=groups)
+
+        if use_nin:
+            mid_channel = min((kernel_size ** 2 // 2), 4)
+            self.weight_net = nn.Sequential(
+                nn.Conv2d(in_channels=in_channels, out_channels=groups * mid_channel , stride=stride,
+                        kernel_size=kernel_size, bias=False, padding=self.pad, groups=groups),
+                nn.BatchNorm2d(self.groups * mid_channel), 
+                nn.ReLU(True),
+                nn.Conv2d(in_channels=groups * mid_channel, out_channels=groups * kernel_size ** 2, stride=1,
+                        kernel_size=1, bias=False, padding=0, groups=groups),
+                nn.BatchNorm2d(self.groups * kernel_size ** 2), 
+            )
+
+        else:
+            self.weight_net = nn.Sequential(
+                nn.Conv2d(in_channels=in_channels, out_channels=groups * kernel_size ** 2, stride=stride,
+                        kernel_size=kernel_size, bias=False, padding=self.pad, groups=groups),
+                nn.BatchNorm2d(self.groups * kernel_size ** 2), 
+                # nn.Softmax(dim=1)
+            )
+
         if use_channel:
-            self.channel_net = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Conv2d(in_channels, in_channels, 1))
+            self.channel_net = nn.Sequential(
+                nn.AdaptiveAvgPool2d((1, 1)), 
+                nn.Conv2d(in_channels=in_channels, out_channels= in_channels // 4, kernel_size=1, bias=False),
+                # nn.BatchNorm2d(in_channels // 4), 
+                nn.ReLU(True),
+                nn.Conv2d(in_channels=in_channels // 4, out_channels = in_channels, kernel_size=1, bias=False),
+                # nn.Sigmoid()
+            )
+
+        # nn.init.kaiming_normal_(self.channel_net[0].weight, mode='fan_out', nonlinearity='relu')
+        # nn.init.kaiming_normal_(self.weight_net[0].weight, mode='fan_out', nonlinearity='relu')
 
     def forward(self, x):
         # Đây là một forward placeholder, bạn nên dùng forward đầy đủ của mình
@@ -104,3 +132,4 @@ class DoubleConv(nn.Module):
         
         # Tổng hợp: Luồng chính + (Trọng số * Luồng làm mượt)
         return x_conv + self.gamma * x_smooth
+
