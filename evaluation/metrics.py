@@ -61,3 +61,33 @@ def batch_multi_class_metrics(pred_logits, target_mask, num_classes, smooth=1e-6
 
     return {'mIoU': mIoU, 'mDice': mDice, 'mAcc': mAcc}
 
+def overall_pixel_accuracy(prediction_logits, target_mask):
+    """
+    Tính độ chính xác pixel tổng thể, LOẠI BỎ các pixel có nhãn IGNORE_INDEX (255).
+    
+    Args:
+        prediction_logits (torch.Tensor): Logits đầu ra từ mô hình (B, C, H, W).
+        target_mask (torch.Tensor): Nhãn mask (B, H, W).
+
+    Returns:
+        float: Độ chính xác tổng thể (0.0 đến 1.0).
+    """
+    # 1. Lấy dự đoán lớp (index) (B, H, W)
+    pred_mask = torch.argmax(prediction_logits, dim=1)
+    
+    # 2. Tạo mặt nạ boolean nơi target_mask KHÔNG PHẢI là IGNORE_INDEX
+    valid_pixels_mask = (target_mask != IGNORE_INDEX)
+    
+    # 3. Tổng số pixel hợp lệ
+    total_valid_pixels = valid_pixels_mask.sum().item()
+    
+    if total_valid_pixels == 0:
+        return 1.0 # Trả về 1.0 nếu không có pixel hợp lệ (tránh chia cho 0)
+
+    # 4. So sánh dự đoán và nhãn CHỈ tại các vị trí hợp lệ
+    correct_predictions = (pred_mask == target_mask)
+    
+    # Lọc kết quả đúng chỉ trên các pixel hợp lệ
+    total_correct_valid = (correct_predictions & valid_pixels_mask).sum().item()
+    
+    return total_correct_valid / total_valid_pixels
