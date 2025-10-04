@@ -1,1 +1,1 @@
-from evaluation.metrics import calculate_multi_class_metrics, overall_pixel_accuracy
+from evaluation.metrics import batch_multi_class_metrics, overall_pixel_accuracy
