@@ -82,7 +82,7 @@ class UpConvBlock(nn.Module):
 
         return out
 
-@BACKBONES.register_module()
+
 class LowLightUNet(BaseModule):
     """
     UNet tích hợp SCB, AWD, và trả về cả enc_outs để hỗ trợ DSL.
