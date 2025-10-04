@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import argparse # Import module argparse
-from ecaluation import calculate_multi_class_metrics, overall_pixel_accuracy 
+from evaluation import calculate_multi_class_metrics, overall_pixel_accuracy 
 # ⚠️ CÁC IMPORT CẦN THIẾT (Giả định nằm trong các file khác)
 from model.backbone import UNet # Giả định UNet đã được định nghĩa ở đây
 from dataset_loader import NightCitySegmentationDataset, PairedTransform 
