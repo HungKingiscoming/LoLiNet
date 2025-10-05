@@ -6,6 +6,7 @@ from model.unet import UNet
 from lowlight_dataset import NightCitySegmentationDataset, PairedTransform
 from collections import Counter
 import numpy as np
+import argparse
 from PIL import Image
 # ===============================
 # 🎨 Hàm tô màu mask segmentation
@@ -108,16 +109,34 @@ def visualize_predictions(
 
 
 if __name__ == "__main__":
-    checkpoint_path = "/kaggle/input/weight-lowlight/best_model.pth"  # 👉 đổi đúng path tới weight của bạn
-    imgdir = "/kaggle/input/night-city-data/night_city/NightCity-image/NightCity-image/val"
-    maskdir = "/kaggle/input/night-city-data/night_city/NightCity-label/NightCity-label/label/val"
+    parser = argparse.ArgumentParser(description="Visualize segmentation predictions")
+
+    parser.add_argument("--checkpoint", type=str, required=True,
+                        help="Path tới file weight .pth (ví dụ: /kaggle/input/weight-lowlight/best_model.pth)")
+    parser.add_argument("--imgdir", type=str, required=True,
+                        help="Thư mục chứa ảnh input")
+    parser.add_argument("--maskdir", type=str, required=True,
+                        help="Thư mục chứa ground truth mask")
+    parser.add_argument("--num_classes", type=int, default=18,
+                        help="Số lớp segmentation (mặc định = 18)")
+    parser.add_argument("--size", type=int, default=256,
+                        help="Kích thước resize ảnh đầu vào")
+    parser.add_argument("--num_images", type=int, default=3,
+                        help="Số ảnh muốn visualize (mặc định = 3)")
+    parser.add_argument("--output_dir", type=str, default="/kaggle/working/outputs",
+                        help="Thư mục lưu ảnh output")
+    parser.add_argument("--device", type=str, default=None,
+                        help="Thiết bị chạy: cuda hoặc cpu")
+
+    args = parser.parse_args()
     
     visualize_predictions(
-        checkpoint_path=checkpoint_path,
-        imgdir=imgdir,
-        maskdir=maskdir,
-        num_classes=18,     # bạn đang có 18 lớp (0–17)
-        size=256,           # resize ảnh để inference
-        num_images=3,       # số ảnh muốn visualize
-        output_dir="/kaggle/working/outputs"
+        checkpoint_path=args.checkpoint,
+        imgdir=args.imgdir,
+        maskdir=args.maskdir,
+        num_classes=args.num_classes,
+        size=args.size,
+        num_images=args.num_images,
+        output_dir=args.output_dir,
+        device=args.device,
     )
