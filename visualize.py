@@ -9,14 +9,18 @@ from lowlight_dataset import NightCitySegmentationDataset, PairedTransform
 # 🎨 Hàm tô màu mask segmentation
 # ===============================
 def colorize_mask(mask, num_classes):
-    """Tô màu cho mask segmentation."""
-    mask = mask.copy()
-    mask[mask == 255] = 0  # bỏ qua vùng ignore_index
-    cmap = np.array(plt.cm.tab20.colors[:num_classes]) * 255
-    cmap = cmap.astype(np.uint8)
+    """Tô màu cho mask segmentation, bỏ qua vùng ignore_index."""
     color_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+
+    # Tạo bảng màu
+    cmap = (np.array(plt.cm.tab20.colors[:num_classes]) * 255).astype(np.uint8)
+
+    # Tô màu cho từng class, bỏ qua vùng ignore_index = 255
     for c in range(num_classes):
         color_mask[mask == c] = cmap[c]
+
+    # Giữ vùng ignore_index là màu đen
+    color_mask[mask == 255] = [0, 0, 0]
     return color_mask
 
 
