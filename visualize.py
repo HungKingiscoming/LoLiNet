@@ -104,3 +104,19 @@ def visualize_predictions(
         plt.show()
 
         print(f"💾 Saved visualization to: {save_path}")
+
+
+if __name__ == "__main__":
+    checkpoint_path = "/kaggle/input/weight-lowlight/best_model.pth"  # 👉 đổi đúng path tới weight của bạn
+    imgdir = "/kaggle/input/night-city-data/night_city/NightCity-image/NightCity-image/val"
+    maskdir = "/kaggle/input/night-city-data/night_city/NightCity-label/NightCity-label/label/val"
+    
+    visualize_predictions(
+        checkpoint_path=checkpoint_path,
+        imgdir=imgdir,
+        maskdir=maskdir,
+        num_classes=18,     # bạn đang có 18 lớp (0–17)
+        size=256,           # resize ảnh để inference
+        num_images=3,       # số ảnh muốn visualize
+        output_dir="/kaggle/working/outputs"
+    )
