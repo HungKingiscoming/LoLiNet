@@ -116,4 +116,3 @@ if __name__ == "__main__":
         batch_size=args.batchsize,
         num_workers=args.numworkers
     )
-z
