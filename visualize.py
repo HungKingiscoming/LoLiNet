@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model.unet import UNet
 from lowlight_dataset import NightCitySegmentationDataset, PairedTransform
-
+from collections import Counter
+import numpy as np
+from PIL import Image
 # ===============================
 # 🎨 Hàm tô màu mask segmentation
 # ===============================
@@ -56,8 +58,7 @@ def visualize_predictions(
     test_transform = PairedTransform(size=(size, size))
     dataset = NightCitySegmentationDataset(img_dir=imgdir, mask_dir=maskdir, transform=test_transform)
     print(f"🔹 Loaded {len(dataset)} test images for visualization")
-    from collections import Counter
-    import numpy as np
+
     mask = np.array(Image.open("/kaggle/input/night-city-data/night_city/NightCity-label/NightCity-label/label/val/Chicago_0004_labelIds.png"))
     counts = Counter(mask.flatten())
     print(counts)
