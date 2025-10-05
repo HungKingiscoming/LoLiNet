@@ -56,6 +56,11 @@ def visualize_predictions(
     test_transform = PairedTransform(size=(size, size))
     dataset = NightCitySegmentationDataset(img_dir=imgdir, mask_dir=maskdir, transform=test_transform)
     print(f"🔹 Loaded {len(dataset)} test images for visualization")
+    from collections import Counter
+    import numpy as np
+    mask = np.array(Image.open("/kaggle/input/night-city-data/night_city/NightCity-label/NightCity-label/label/val/Chicago_0004_labelIds.png"))
+    counts = Counter(mask.flatten())
+    print(counts)
 
     os.makedirs(output_dir, exist_ok=True)
     indices = np.random.choice(len(dataset), min(num_images, len(dataset)), replace=False)
