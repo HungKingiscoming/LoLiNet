@@ -4,47 +4,52 @@ import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+import argparse
+
+# Giả định các module evaluation và model/unet tồn tại và hoạt động đúng
 
 # ====================================================
-# A. ÁNH XẠ NHÃN (LABEL REMAPPING)
+# A. ÁNH XẠ NHÃN (LABEL REMAPPING) - ĐÃ CHỈNH SỬA
 # ====================================================
 
-# Bảng ánh xạ từ Original ID sang Train ID (0-19)
-# Nhãn 0 và các nhãn không có trong danh sách sẽ được gán là IGNORE_INDEX
-IGNORE_INDEX = 255
-
-ID_MAPPING = {
-    # Các nhãn cần huấn luyện (20 lớp)
-    7: 0,       # road
-    8: 1,       # sidewalk
-    11: 2,      # fence
-    12: 3,      # pole
-    13: 4,      # traffic light
-    17: 5,      # sky
-    18: 6,      # person
-    19: 7,      # rider
-    20: 8,      # car
-    21: 9,      # truck
-    22: 10,     # bus
-    23: 11,     # train
-    24: 12,     # motorcycle
-    25: 13,     # bicycle
-    26: 14,     # barrier
-    27: 15,     # billboard
-    28: 16,     # streetlight
-    31: 17,     # tunnel
-    32: 18,     # bridge
-    33: 19,     # building group
-    
-    # Nhãn 0 và các nhãn không cần thiết khác sẽ được ánh xạ tới IGNORE_INDEX=255
-    # Bạn chỉ cần đảm bảo rằng tất cả các giá trị không phải là 7, 8, 11,... 33
-    # sẽ được xử lý trong hàm convert_to_train_ids bên dưới.
+# Thông tin nhãn được cung cấp
+label_info = {
+    7: ("road", (128, 64, 128)),
+    8: ("sidewalk", (244, 35, 232)),
+    11: ("fence", (190, 153, 153)),
+    12: ("pole", (153, 153, 153)),
+    13: ("traffic light", (250, 170, 30)),
+    17: ("sky", (70, 130, 180)),
+    18: ("person", (220, 20, 60)),
+    19: ("rider", (255, 0, 0)),
+    20: ("car", (0, 0, 142)),
+    21: ("truck", (0, 0, 70)),
+    22: ("bus", (0, 60, 100)),
+    23: ("train", (0, 80, 100)),
+    24: ("motorcycle", (0, 0, 230)),
+    25: ("bicycle", (119, 11, 32)),
+    26: ("barrier", (180, 165, 180)),
+    27: ("billboard", (200, 200, 0)),
+    28: ("streetlight", (100, 100, 100)),
+    31: ("tunnel", (0, 100, 100)),
+    32: ("bridge", (50, 50, 50)),
+    33: ("building group", (0, 128, 128))
 }
+
+# Tạo Bảng ánh xạ từ Original ID sang Train ID (0-19)
+# Các Original ID được sắp xếp và gán lại từ 0
+ID_MAPPING = {original_id: train_id for train_id, original_id in enumerate(label_info.keys())}
+# Kết quả: {7: 0, 8: 1, 11: 2, ..., 33: 19}
+
+# Nhãn cho các ID không hợp lệ/không cần huấn luyện
+IGNORE_INDEX = 255 # GIỮ NGUYÊN
 
 def convert_to_train_ids(mask_array):
     """Ánh xạ Original IDs sang Train IDs (0-19) hoặc IGNORE_INDEX (255)."""
     # Tạo một mảng mới với giá trị ignore_index mặc định (bao gồm nhãn 0)
-    # Tất cả các pixel sẽ mặc định là 255 trừ khi nó nằm trong ID_MAPPING
     train_mask = np.full_like(mask_array, IGNORE_INDEX, dtype=np.uint8)
 
     # Ánh xạ từng ID có ý nghĩa
@@ -57,12 +62,13 @@ def convert_to_train_ids(mask_array):
     return train_mask
 
 # ====================================================
-# B. PAIRED TRANSFORM (Giữ nguyên cấu trúc, áp dụng ánh xạ)
+# B. PAIRED TRANSFORM (GIỮ NGUYÊN)
 # ====================================================
 
 class PairedTransform:
     """Áp dụng các phép biến đổi giống nhau cho cả ảnh và mask."""
     def __init__(self, size=None):
+        # ... (Phần này giữ nguyên)
         if size is not None:
             self.resize = transforms.Resize(size, interpolation=Image.BILINEAR)
             self.resize_mask = transforms.Resize(size, interpolation=Image.NEAREST)
@@ -93,11 +99,12 @@ class PairedTransform:
 
 
 # ====================================================
-# C. DATASET ĐÃ SỬA (Giữ nguyên cấu trúc đường dẫn đã sửa)
+# C. DATASET ĐÃ SỬA (GIỮ NGUYÊN)
 # ====================================================
 
 class NightCitySegmentationDataset(Dataset):
     def __init__(self, img_dir, mask_dir=None, transform=None): 
+        # ... (Phần này giữ nguyên)
         self.img_path = img_dir
         self.mask_path = mask_dir
         self.file_list = sorted(os.listdir(self.img_path))
