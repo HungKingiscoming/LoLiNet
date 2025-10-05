@@ -77,10 +77,9 @@ def visualize_predictions(checkpoint_path, imgdir, maskdir, num_classes=20, size
         axes[2].axis("off")
 
         plt.tight_layout()
-
+        plt.show()
         save_path = os.path.join(output_dir, f"visual_{idx+1}.png")
         plt.savefig(save_path, bbox_inches="tight")
-        plt.show()
 
         print(f"💾 Saved visualization to: {save_path}")
 
