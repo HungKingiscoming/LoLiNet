@@ -153,7 +153,7 @@ def train_model(args):
         print(f"Epoch {epoch+1}/{NUM_EPOCHS} | Loss: {avg_loss:.4f} | mIoU: {avg_mIoU:.4f} | mDice: {avg_mDice:.4f} | mAcc: {avg_mAcc:.4f} | Overall Acc: {avg_overall_acc:.4f}")
     
         # Tùy chọn: Lưu checkpoint
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 20 == 0:
             os.makedirs('./checkpoints', exist_ok=True)
             torch.save(
                 {'model': model.state_dict()}, 
