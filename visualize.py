@@ -53,7 +53,7 @@ def visualize_predictions(checkpoint_path, imgdir, num_classes=20, size=224, num
 
     # Dataset chỉ cần ảnh (không cần mask)
     test_transform = PairedTransform(size=(size, size))
-    dataset = NightCitySegmentationDataset(img_dir=imgdir, mask_dir=None, transform=test_transform)
+    dataset = NightCitySegmentationDataset(img_dir=imgdir, mask_dir=maskdir, transform=test_transform)
     print(f"🔹 Loaded {len(dataset)} test images for visualization")
 
     os.makedirs(output_dir, exist_ok=True)
