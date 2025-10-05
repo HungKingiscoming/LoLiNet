@@ -1,6 +1,5 @@
 import os
 import torch
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from model.unet import UNet
@@ -10,11 +9,14 @@ from lowlight_dataset import NightCitySegmentationDataset, PairedTransform
 # 🎨 Hàm tô màu mask segmentation
 # ===============================
 def colorize_mask(mask, num_classes):
-    np.random.seed(42)
-    colors = np.random.randint(0, 255, size=(num_classes, 3), dtype=np.uint8)
+    """Tô màu cho mask segmentation."""
+    mask = mask.copy()
+    mask[mask == 255] = 0  # bỏ qua vùng ignore_index
+    cmap = np.array(plt.cm.tab20.colors[:num_classes]) * 255
+    cmap = cmap.astype(np.uint8)
     color_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
     for c in range(num_classes):
-        color_mask[mask == c] = colors[c]
+        color_mask[mask == c] = cmap[c]
     return color_mask
 
 
@@ -22,7 +24,16 @@ def colorize_mask(mask, num_classes):
 # 🖼️ Hàm visualize dự đoán
 # ===============================
 @torch.no_grad()
-def visualize_predictions(checkpoint_path, imgdir, maskdir, num_classes=20, size=224, num_images=3, output_dir="outputs", device=None):
+def visualize_predictions(
+    checkpoint_path,
+    imgdir,
+    maskdir,
+    num_classes=20,
+    size=224,
+    num_images=3,
+    output_dir="outputs",
+    device=None,
+):
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,7 +48,7 @@ def visualize_predictions(checkpoint_path, imgdir, maskdir, num_classes=20, size
         model.load_state_dict(checkpoint)
     model.eval()
 
-    # Dataset (có cả ảnh và mask)
+    # Dataset
     test_transform = PairedTransform(size=(size, size))
     dataset = NightCitySegmentationDataset(img_dir=imgdir, mask_dir=maskdir, transform=test_transform)
     print(f"🔹 Loaded {len(dataset)} test images for visualization")
@@ -63,7 +74,7 @@ def visualize_predictions(checkpoint_path, imgdir, maskdir, num_classes=20, size
         pred_colored = colorize_mask(pred_mask, num_classes)
 
         # Hiển thị 3 ảnh cạnh nhau
-        fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
         axes[0].imshow(img_vis)
         axes[0].set_title("Ảnh gốc")
         axes[0].axis("off")
@@ -77,34 +88,10 @@ def visualize_predictions(checkpoint_path, imgdir, maskdir, num_classes=20, size
         axes[2].axis("off")
 
         plt.tight_layout()
-        plt.show()
+
+        # ✅ Lưu trước khi hiển thị
         save_path = os.path.join(output_dir, f"visual_{idx+1}.png")
-        plt.savefig(save_path, bbox_inches="tight")
+        plt.savefig(save_path, bbox_inches="tight", dpi=150)
+        plt.show()
 
         print(f"💾 Saved visualization to: {save_path}")
-
-
-# ===============================
-# 🚀 Chạy bằng dòng lệnh (CLI)
-# ===============================
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Hiển thị và lưu kết quả segmentation.")
-    parser.add_argument("--checkpoint", type=str, required=True, help="Đường dẫn tới file .pth model.")
-    parser.add_argument("--imgdir", type=str, required=True, help="Thư mục ảnh test.")
-    parser.add_argument("--maskdir", type=str, required=True, help="Thư mục ground truth masks.")
-    parser.add_argument("--numclasses", type=int, default=20, help="Số lớp segmentation.")
-    parser.add_argument("--size", type=int, default=224, help="Kích thước resize ảnh.")
-    parser.add_argument("--numimages", type=int, default=3, help="Số ảnh hiển thị.")
-    parser.add_argument("--outputdir", type=str, default="outputs", help="Thư mục lưu ảnh kết quả.")
-
-    args = parser.parse_args()
-
-    visualize_predictions(
-        checkpoint_path=args.checkpoint,
-        imgdir=args.imgdir,
-        maskdir=args.maskdir,
-        num_classes=args.numclasses,
-        size=args.size,
-        num_images=args.numimages,
-        output_dir=args.outputdir
-    )
