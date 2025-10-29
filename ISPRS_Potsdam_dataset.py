@@ -61,7 +61,7 @@ class ISPRSDataset(Dataset):
 
         # ⚙️ Remap label (nếu có hàm remap)
         if 'remap_mask' in globals():
-            mask = remap_mask(mask)
+            mask = remap_labels(mask)
 
         # ⚙️ Normalize + Chuyển tensor
         image = image.astype(np.float32) / 255.0
