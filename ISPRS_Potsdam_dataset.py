@@ -35,67 +35,38 @@ def remap_labels(mask: np.ndarray) -> np.ndarray:
 # 🧠 3️⃣ CLASS DATASET CHUẨN HÓA
 # ====================================================
 class ISPRSDataset(Dataset):
-    def __init__(self, img_dir, mask_dir=None, transform=None):
-        """
-        Args:
-            img_dir (str): Thư mục ảnh gốc
-            mask_dir (str): Thư mục chứa mask tương ứng (None nếu chỉ inference)
-            transform (albumentations.Compose): Các phép augment (resize, flip, normalize,...)
-        """
+    def __init__(self, img_dir, mask_dir, target_size=(112, 112), transform=None):
         self.img_dir = img_dir
         self.mask_dir = mask_dir
-        self.file_list = sorted([
-            f for f in os.listdir(img_dir)
-            if f.lower().endswith((".jpg", ".png", ".jpeg"))
-        ])
+        self.img_files = sorted(os.listdir(img_dir))
+        self.mask_files = sorted(os.listdir(mask_dir))
+        self.target_size = target_size
         self.transform = transform
 
     def __len__(self):
-        return len(self.file_list)
+        return len(self.img_files)
 
     def __getitem__(self, idx):
-        fname = self.file_list[idx]
-        img_path = os.path.join(self.img_dir, fname)
+        img_path = os.path.join(self.img_dir, self.img_files[idx])
+        mask_path = os.path.join(self.mask_dir, self.mask_files[idx])
 
-        # Đọc ảnh RGB
-        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        if img is None:
-            raise FileNotFoundError(f"❌ Không thể đọc ảnh: {img_path}")
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        # === Chế độ inference: không có mask ===
-        if self.mask_dir is None:
-            if self.transform:
-                transformed = self.transform(image=img)
-                img_tensor = transformed['image']
-            else:
-                img_tensor = torch.from_numpy(img.transpose(2, 0, 1) / 255.).float()
-            dummy_mask = torch.zeros(TARGET_SIZE, dtype=torch.long)
-            return img_tensor, dummy_mask
-
-        # === Chế độ train/val: có mask ===
-        # Giả định tên mask thay “Image” bằng “Label”
-        mask_path = os.path.join(self.mask_dir, fname.replace("Image", "Label"))
-        if not os.path.exists(mask_path):
-            raise FileNotFoundError(f"❌ Không tìm thấy mask cho ảnh: {fname}")
-
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        if mask is None:
-            raise FileNotFoundError(f"❌ Không thể đọc mask: {mask_path}")
 
-        # Resize (nếu transform không có resize)
-        img = cv2.resize(img, TARGET_SIZE, interpolation=cv2.INTER_LINEAR)
-        mask = cv2.resize(mask, TARGET_SIZE, interpolation=cv2.INTER_NEAREST)
-        mask = remap_labels(mask)
+        # ⚙️ Resize nếu có target_size
+        if self.target_size is not None:
+            image = cv2.resize(image, self.target_size, interpolation=cv2.INTER_LINEAR)
+            mask = cv2.resize(mask, self.target_size, interpolation=cv2.INTER_NEAREST)
 
-        # Augmentation bằng Albumentations
-        if self.transform:
-            augmented = self.transform(image=img, mask=mask)
-            img, mask = augmented['image'], augmented['mask']
-            if mask.dtype != torch.long:
-                mask = mask.long()
-        else:
-            img = torch.from_numpy(img.transpose(2, 0, 1) / 255.).float()
-            mask = torch.from_numpy(mask).long()
+        # ⚙️ Remap label (nếu có hàm remap)
+        if 'remap_mask' in globals():
+            mask = remap_mask(mask)
 
-        return img, mask
+        # ⚙️ Normalize + Chuyển tensor
+        image = image.astype(np.float32) / 255.0
+        image = torch.from_numpy(image.transpose(2, 0, 1))  # (C,H,W)
+        mask = torch.from_numpy(mask.astype(np.int64))
+
+        return image, mask
+
