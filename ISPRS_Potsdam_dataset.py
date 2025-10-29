@@ -3,8 +3,6 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 # ====================================================
 # ⚙️ 1️⃣ CẤU HÌNH NHÃN & BIẾN TOÀN CỤC
@@ -20,7 +18,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # ====================================================
 def remap_labels(mask: np.ndarray) -> np.ndarray:
     """
-    Chuyển nhãn gốc (RGB hoặc ID) thành nhãn huấn luyện (0–5), 
+    Chuyển nhãn gốc (RGB hoặc ID) thành nhãn huấn luyện (0–5),
     và gán 255 cho pixel bị bỏ qua.
     """
     new_mask = np.full_like(mask, 255, dtype=np.uint8)
@@ -35,7 +33,7 @@ def remap_labels(mask: np.ndarray) -> np.ndarray:
 # 🧠 3️⃣ CLASS DATASET CHUẨN HÓA
 # ====================================================
 class ISPRSDataset(Dataset):
-    def __init__(self, img_dir, mask_dir, target_size=(112, 112), transform=None):
+    def __init__(self, img_dir, mask_dir, target_size=(256, 256), transform=None):
         self.img_dir = img_dir
         self.mask_dir = mask_dir
         self.img_files = sorted(os.listdir(img_dir))
@@ -54,19 +52,21 @@ class ISPRSDataset(Dataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-        # ⚙️ Resize nếu có target_size
+        # ⚙️ Kiểm tra mask đọc được không
+        if mask is None:
+            raise FileNotFoundError(f"Không thể đọc mask: {mask_path}")
+
+        # ⚙️ Resize
         if self.target_size is not None:
             image = cv2.resize(image, self.target_size, interpolation=cv2.INTER_LINEAR)
             mask = cv2.resize(mask, self.target_size, interpolation=cv2.INTER_NEAREST)
 
-        # ⚙️ Remap label (nếu có hàm remap)
-        if 'remap_mask' in globals():
-            mask = remap_labels(mask)
+        # ⚙️ Remap labels
+        mask = remap_labels(mask)
 
-        # ⚙️ Normalize + Chuyển tensor
+        # ⚙️ Normalize & tensor
         image = image.astype(np.float32) / 255.0
         image = torch.from_numpy(image.transpose(2, 0, 1))  # (C,H,W)
         mask = torch.from_numpy(mask.astype(np.int64))
 
         return image, mask
-
