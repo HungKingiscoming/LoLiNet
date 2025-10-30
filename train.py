@@ -8,9 +8,10 @@ import argparse
 from evaluation import batch_multi_class_metrics, overall_pixel_accuracy
 from model.unet import UNet
 
-# Import hai dataset
+# Import ba dataset
 from lowlight_dataset import NightCitySegmentationDataset, PairedTransform
 from ISPRS_Potsdam_dataset import ISPRSDataset
+from loveDA_dataset import LoveDADataset  # ✅ thêm dataset LoveDA
 
 
 # =======================================================
@@ -20,8 +21,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Huấn luyện mô hình UNet cho bài toán segmentation.")
 
     # --- Chọn dataset ---
-    parser.add_argument('--dataset', type=str, required=True, choices=['lowlight', 'isprs'],
-                        help="Chọn bộ dữ liệu để huấn luyện: 'lowlight' hoặc 'isprs'")
+    parser.add_argument('--dataset', type=str, required=True,
+                        choices=['lowlight', 'isprs', 'loveDA'],
+                        help="Chọn bộ dữ liệu để huấn luyện: 'lowlight', 'isprs' hoặc 'loveDA'")
 
     parser.add_argument('--imgdir', type=str, required=True,
                         help='Đường dẫn đến thư mục ảnh huấn luyện (VD: ./images/train)')
@@ -67,11 +69,7 @@ def train_model(args):
     # =============================
     if DATASET == "lowlight":
         # --- Lowlight NightCity dataset ---
-        if args.numclasses is None:
-            NUM_CLASSES = 20  # mặc định 20 lớp
-        else:
-            NUM_CLASSES = args.numclasses
-
+        NUM_CLASSES = args.numclasses or 20
         transform = PairedTransform(size=(TARGET_SIZE, TARGET_SIZE))
         dataset = NightCitySegmentationDataset(
             img_dir=IMG_DIR,
@@ -83,15 +81,38 @@ def train_model(args):
         # --- ISPRS Potsdam dataset ---
         from ISPRS_Potsdam_dataset import LABEL_MAPPING
         NUM_CLASSES = len(LABEL_MAPPING) if args.numclasses is None else args.numclasses
-
         dataset = ISPRSDataset(
             img_dir=IMG_DIR,
             mask_dir=MASK_DIR,
             target_size=(TARGET_SIZE, TARGET_SIZE)
         )
 
+    elif DATASET == "loveda":
+        # --- LoveDA dataset ---
+        from albumentations import Compose, Resize, Normalize, HorizontalFlip, VerticalFlip, RandomRotate90, ColorJitter
+        from albumentations.pytorch import ToTensorV2
+
+        NUM_CLASSES = args.numclasses or 8  # LoveDA có 8 lớp (0–7)
+
+        transform = Compose([
+            Resize(TARGET_SIZE, TARGET_SIZE),
+            HorizontalFlip(p=0.5),
+            VerticalFlip(p=0.5),
+            RandomRotate90(p=0.5),
+            ColorJitter(p=0.2),
+            Normalize(mean=(0.485, 0.456, 0.406),
+                      std=(0.229, 0.224, 0.225)),
+            ToTensorV2()
+        ])
+
+        dataset = LoveDADataset(
+            base_dirs=[IMG_DIR],  # thư mục gốc chứa Train/Val
+            split="Train",
+            transform=transform
+        )
+
     else:
-        raise ValueError("Dataset không hợp lệ. Chỉ hỗ trợ: lowlight hoặc isprs.")
+        raise ValueError("Dataset không hợp lệ. Chỉ hỗ trợ: lowlight, isprs, loveDA.")
 
     print(f"✅ Dataset: {DATASET.upper()} | Số mẫu: {len(dataset)} | Kích thước: {TARGET_SIZE}x{TARGET_SIZE} | Số lớp: {NUM_CLASSES}")
 
@@ -148,8 +169,10 @@ def train_model(args):
         avg_mAcc = total_mAcc / num_batches
         avg_overall_acc = total_overall_acc / num_batches
 
-        print(f"[Epoch {epoch+1}/{NUM_EPOCHS}] Loss: {avg_loss:.4f} | mIoU: {avg_mIoU:.4f} | "
-              f"mDice: {avg_mDice:.4f} | mAcc: {avg_mAcc:.4f} | OverallAcc: {avg_overall_acc:.4f}")
+        print(f"[Epoch {epoch+1}/{NUM_EPOCHS}] "
+              f"Loss: {avg_loss:.4f} | mIoU: {avg_mIoU:.4f} | "
+              f"mDice: {avg_mDice:.4f} | mAcc: {avg_mAcc:.4f} | "
+              f"OverallAcc: {avg_overall_acc:.4f}")
 
         # === Lưu checkpoint mỗi 20 epoch ===
         if (epoch + 1) % 20 == 0:
